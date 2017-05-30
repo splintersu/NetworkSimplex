@@ -5,31 +5,34 @@
 #include <algorithm>
 using namespace std;
 
+#define mp make_pair 
+#define fi first
+#define se second
+
+typedef int arc;
+
+const int maxn = 500000;
+const int maxm = 500000;
 
 namespace solver
 {
-	#define mp make_pair 
-	#define fi first
-	#define se second
-
-	typedef int arc;
-
-	const int maxn = 500000;
-	const int maxm = 500000;
-
-
 	const int special_cost = -1000000000;
 
-	int n , m;//node : [0 , n)
+	int n = -1 , m = 0;//node : [0 , n)
+	//######### need initial value
+	bool edge_from_sink_to_source_added = false;
 
 	//arcs in residual net. [2 , 2m + 2)
 	int nxt[maxm] , cap[maxm] , start_point[maxm] , to[maxm] , cost[maxm];
 	int head_n[maxn] = {0};
 	int head_t[maxn] = {0};
-	bool tree_edge[maxm];int tot = 2;
+	bool tree_edge[maxm];
+	int tot = 2;
+	//####### need clear
 	
-	int total_cost;
-	int total_flow;
+	int total_cost = 0;
+	int total_flow = 0;
+	//####### need clear
 
 	void addarc(int from , int t , int capacity , int weight ,  bool tree)
 	{
@@ -53,32 +56,14 @@ namespace solver
 
 	namespace initial_solution
 	{
-		int b[maxn];
-		//b stands for demanded flow, also the extra flow in
 		struct Edge{
 			int st , ed , cost , capacity;
 		}edges[maxm];
-		vector<int> L , U , T; // represents the initial feasible solution
+		
+		int T_edges[maxn] , T_len = 0;
 		
 		int parent[maxn];
 		int getf(int x){while(parent[x] != -1)x = parent[x];return x;}
-		void generate_random_spanning_tree()
-		{
-			for(int i = 0 ; i < n ; i++)
-				parent[i] = -1;
-			for(int i = m ; i >= 1 ; i--)
-			{
-				int pu = getf(edges[i].st);
-				int pv = getf(edges[i].ed);
-				if(pu == pv)L.push_back(i);
-				else
-				{
-					T.push_back(i);
-					parent[pu] = pv;
-				}
-			}
-			//printf("n = %d, tree size %d\n" , n , int(T.size()));
-		}
 
 		int x[maxm];
 		
@@ -136,53 +121,43 @@ namespace solver
 
 		void init()
 		{
+			T_len = 0;
 			for(int i = 0 ; i < n ; i++)
-				remain[i] = b[i];
-			for(auto e : L)
-				x[e] = 0;
-			for(auto e : U)
+				remain[i] = 0;
+			for(int i = 0 ; i < n ; i++)
+				parent[i] = -1;
+			for(int i = m ; i >= 1 ; i--)
 			{
-				x[e] = edges[e].capacity;
-				remain[edges[e].ed] += edges[e].capacity;
-				remain[edges[e].st] -= edges[e].capacity;
+				int pu = getf(edges[i].st);
+				int pv = getf(edges[i].ed);
+				if(pu == pv) // L
+				{
+					x[i] = 0;
+					addarc(edges[i].st , edges[i].ed , edges[i].capacity , edges[i].cost , false);
+					addarc(edges[i].ed , edges[i].st , 0 , -edges[i].cost , false);
+				}
+				else
+				{
+					addtreearc(edges[i].st , edges[i].ed , i + 1000000000);
+					addtreearc(edges[i].ed , edges[i].st , i);
+					T_edges[++T_len] = i;
+					parent[pu] = pv;
+				}
 			}
-			for(auto e : T)
-			{
-				addtreearc(edges[e].st , edges[e].ed , e + 1000000000);
-				addtreearc(edges[e].ed , edges[e].st , e);
-			}
+			//printf("n = %d, tree size %d\n" , n , T_len);
 
 			dfs0(0 , -1);
-			/*
-			for(int i = 1 ; i <= m ; i++)
-				printf("x[%d] = %d\n" , i ,x[i]);
-			*/
-			for(auto e : T)
-				if(x[e] < 0 || x[e] > edges[e].capacity)
-					assert(false);
 
-			for(auto e : L)
+			int e;
+			total_cost = 0;
+			for(int i = 1 ; i <= T_len ; i++)
 			{
-				addarc(edges[e].st , edges[e].ed , edges[e].capacity , edges[e].cost , false);
-				addarc(edges[e].ed , edges[e].st , 0 , -edges[e].cost , false);
-			}
-			for(auto e : U)
-			{
-				addarc(edges[e].st , edges[e].ed , 0 , edges[e].cost , false);
-				addarc(edges[e].ed , edges[e].st , edges[e].capacity , -edges[e].cost , false);
-			}
-			
-			for(auto e : T)
-			{
+				e = T_edges[i];
 				addarc(edges[e].st , edges[e].ed , edges[e].capacity - x[e], edges[e].cost , true);
 				addarc(edges[e].ed , edges[e].st , x[e] , -edges[e].cost , true);
-			}
-
-			total_cost = 0;
-			for(auto e : U)
-				total_cost += (int)edges[e].capacity * edges[e].cost;
-			for(auto e : T)
 				total_cost += (int)x[e] * edges[e].cost;
+			}
+				
 			//printf("initial_cost = %lld\n" , total_cost);
 		}
 	}
@@ -219,26 +194,54 @@ namespace solver
 
 	int tree_arc_list[maxn] , tree_arc_list_top;
 
+	arc arc_to_parent[maxn];int dep[maxn] , parent[maxn];
+
 	pair<int,arc> bottlenect;
 
-	bool get_min_flow(int o , int ed , int fa)
+	void get_min_flow(int st , int ed)
 	{
-		if(o == ed)return true;
-		for(int i = head_t[o] ; i ; i = nxt[i])
+		while(dep[st] > dep[ed])
 		{
-			if(to[i] == fa)continue;
-			if(get_min_flow(to[i] , ed , o))
+			tree_arc_list[++tree_arc_list_top] = arc_to_parent[st];
+
+			if(cap[arc_to_parent[st]] < bottlenect.fi)
 			{
-				tree_arc_list[++tree_arc_list_top] = i;
-				if(cap[i] < bottlenect.fi)
-				{
-					bottlenect.fi = cap[i];
-					bottlenect.se = i;
-				}
-				return true;
+				bottlenect.fi = cap[arc_to_parent[st]];
+				bottlenect.se = arc_to_parent[st];
 			}
+			st = parent[st];
 		}
-		return false;
+		while(dep[ed] > dep[st])
+		{
+
+			tree_arc_list[++tree_arc_list_top] = 1 ^ arc_to_parent[ed];
+
+			if(cap[1 ^ arc_to_parent[ed]] < bottlenect.fi)
+			{
+				bottlenect.fi = cap[1 ^ arc_to_parent[ed]];
+				bottlenect.se = 1 ^ arc_to_parent[ed];
+			}
+			ed = parent[ed];
+		}
+		while(st != ed)
+		{
+			tree_arc_list[++tree_arc_list_top] = arc_to_parent[st];
+			tree_arc_list[++tree_arc_list_top] = 1 ^ arc_to_parent[ed];
+
+			if(cap[arc_to_parent[st]] < bottlenect.fi)
+			{
+				bottlenect.fi = cap[arc_to_parent[st]];
+				bottlenect.se = arc_to_parent[st];
+			}
+			st = parent[st];
+
+			if(cap[1 ^ arc_to_parent[ed]] < bottlenect.fi)
+			{
+				bottlenect.fi = cap[1 ^ arc_to_parent[ed]];
+				bottlenect.se = 1 ^ arc_to_parent[ed];
+			}
+			ed = parent[ed];
+		}
 	}
 
 	void augment(int f)
@@ -258,7 +261,7 @@ namespace solver
 	void update(arc non_tree_arc)
 	{
 		bottlenect = mp(2100000000 , -1);
-		get_min_flow(to[non_tree_arc] , start_point[non_tree_arc] , -1);
+		get_min_flow(to[non_tree_arc] , start_point[non_tree_arc]);
 		pair<int,arc> min_flow = bottlenect;
 		//printf("bottlenect arc in tree <%d,%d>cap = %d\n" , min_flow.se.fi , to[min_flow.se.se] , min_flow.fi);
 		if(cap[non_tree_arc] < min_flow.fi)
@@ -299,11 +302,16 @@ namespace solver
 		}
 	}
 
+	
+
 	void dfs1(int o , int fa)
 	{
 		for(int i = head_t[o] ; i ; i = nxt[i])
 		{
 			if(to[i] == fa)continue;
+			dep[to[i]] = dep[o] + 1;
+			parent[to[i]] = o;
+			arc_to_parent[to[i]] = i ^ 1;
 			pi[to[i]] = pi[o] - cost[i];
 			dfs1(to[i] , o);
 		}
@@ -312,6 +320,7 @@ namespace solver
 	arc check()
 	{
 		pi[0] = 0;
+		dep[0] = 1;
 		dfs1(0 , -1);
 
 		int min_c_pi = 0 , now_c_pi;
@@ -331,22 +340,21 @@ namespace solver
 
 	pair<int , int> solve()
 	{
-		solver::initial_solution::init();
+		if(n == -1 || !edge_from_sink_to_source_added)
+		{
+			printf("n not intialized or the edge from sink to source is not added!\n");
+			assert(false);
+		}
+		initial_solution::init();
 		int count = 0;
 		while(1)
 		{
-			//printf("!\n");
-			//calculate_pi();
 			arc non_tree_arc = check();
-			//printf("<%d,%d>\n" , start_point[non_tree_arc] , non_tree_arc);
 			if(non_tree_arc == -1)break;
-			//if(start_point[non_tree_arc] == -1)break;
-			//printf("non_tree_arc is <%d,%d>, cap = %d\n" , start_point[non_tree_arc] , to[non_tree_arc] , cap[non_tree_arc]);
 			update(non_tree_arc);
 			count++;
 		}
 		return mp(total_flow , total_cost);
-		//printf("total_cost : %lld\n" , total_cost);
 	}
 
 	void clear()
@@ -354,20 +362,24 @@ namespace solver
 		tot = 2;
 		total_cost = 0;
 		total_flow = 0;
+		m = 0;
 		for(int i = 0 ; i < n ; i++)
 		{
 			head_n[i] = 0;
 			head_t[i] = 0;
 		}
 		solver::initial_solution::clear();
+		n = -1;
+		edge_from_sink_to_source_added = false;
 	}
 
 	void addedge(int from , int t , int cap , int wei)
 	{
-		solver::m++;
-		solver::initial_solution::edges[solver::m].st = from;
-		solver::initial_solution::edges[solver::m].ed = t;
-		solver::initial_solution::edges[solver::m].capacity = cap;
-		solver::initial_solution::edges[solver::m].cost = wei;
+		if(wei == -1000000000)edge_from_sink_to_source_added = true;
+		m++;
+		initial_solution::edges[m].st = from;
+		initial_solution::edges[m].ed = t;
+		initial_solution::edges[m].capacity = cap;
+		initial_solution::edges[m].cost = wei;
 	}
 }
