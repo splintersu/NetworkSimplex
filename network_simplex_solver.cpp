@@ -1,4 +1,5 @@
 #include "network_simplex_solver.h"
+#include <cassert>
 #ifdef DEBUG
 #include <cstdio>
 #endif
@@ -301,7 +302,16 @@ Solution Solution::GetZeroInitialSolution(pint_t n, const vector<NetworkSimplexS
 
 // static
 cost_t NetworkSimplexSolver::Solve(pint_t n, const vector<Arc>& arcs) {
+	SanityCheck(n, arcs);
 	Solution sol = Solution::GetZeroInitialSolution(n, arcs);
 	LOG("finish build solution");
 	return sol.Solve();
+}
+
+// static
+bool NetworkSimplexSolver::SanityCheck(pint_t n, const std::vector<Arc>& arcs) {
+	for(pint_t i = 0 ; i < arcs.size() ; i++){
+		assert(arcs[i].st >= 0 && arcs[i].st < n);
+		assert(arcs[i].ed >= 0 && arcs[i].ed < n);
+	}
 }

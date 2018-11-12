@@ -5,6 +5,8 @@ Author: splintersu@github
 
 https://github.com/splintersu/NetworkSimplex
 
+compile with c++11 or newer version
+
 ------
 
 Network Simplex Algorithm is for Minimum-Cost-Flow problem

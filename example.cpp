@@ -13,5 +13,10 @@ int main() {
 	arcs.push_back({3, 1, 2, 0});
 
 	cout << NetworkSimplexSolver::Solve(4, arcs) << endl;
+
+	arcs.push_back({3, 4, 2, 0});
+
+	cout << NetworkSimplexSolver::Solve(4, arcs) << endl;
+
 	return 0;
 }
