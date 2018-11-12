@@ -5,7 +5,7 @@ Author: splintersu@github
 
 https://github.com/splintersu/NetworkSimplex
 
-
+------
 
 Network Simplex Algorithm is for Minimum-Cost-Flow problem
 
@@ -23,8 +23,8 @@ $0 \leq x_{i, j} \leq u_{i, j} \forall {i, j} \in A$
 
 $sum_{(i, j) \in A} x_{i, j} - sum_{(k, i) \in A} x_{k, i} = 0$
 
-
+------
 
 reference:
 
-[1]: http://www.unc.edu/depts/stat-or/courses/provan/STOR724_web/lect14_simp.pdf	"reference"
+http://www.unc.edu/depts/stat-or/courses/provan/STOR724_web/lect14_simp.pdf
